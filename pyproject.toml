@@ -1,0 +1,66 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sheaf"
+version = "0.0.1"
+description = "Declarative 3D graphics DSL producing publication-grade vector figures for LaTeX papers."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "sheaf contributors" }]
+keywords = ["3d", "latex", "tikz", "pgfplots", "dsl", "scientific-visualization"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Visualization",
+    "Topic :: Text Processing :: Markup :: LaTeX",
+]
+dependencies = [
+    "sympy>=1.13",
+    "numpy>=1.26",
+    "scipy>=1.13",
+    "trimesh>=4.4",
+    "manifold3d>=2.5",
+]
+
+[project.optional-dependencies]
+preview = ["pyvista>=0.44", "vispy>=0.14"]
+dev = [
+    "pytest>=8.3",
+    "pytest-cov>=5.0",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "pillow>=10.4",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["sheaf"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = ["-ra", "--strict-markers", "--strict-config"]
+markers = [
+    "latex: requires pdflatex/lualatex in PATH",
+    "preview: requires PyVista or VisPy",
+    "slow: marks long-running tests",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "N"]
+# N803/N806 disabled project-wide: mathematical code conventionally uses
+# uppercase for matrices (J, M), meshgrids (X, Y, Z), scalar fields (F),
+# gradients (G).  Forcing lowercase would fight the math it implements.
+ignore = ["E501", "N803", "N806"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
