@@ -1,4 +1,4 @@
-"""TikZ code generator — Month 2 W8.
+"""TikZ code generator — Month 2 W8 + Month 3 W10.
 
 Takes an :class:`~sheaf.numeric.mesh.AdaptiveMesh`, a
 :class:`~sheaf.vector.camera.Camera`, and an optional
@@ -21,18 +21,31 @@ Design choices
 * **Edges** — drawn only for materials that define a ``wire_color`` (the
   semantic cue of Chalkboard and Blueprint); transparent / glass-type
   materials emit fills alone.
+* **Hatch overlay** (W10) — when the material sets ``hatch_pattern``,
+  a second ``\\fill`` pass stamps that TikZ pattern on top of the solid
+  fill, giving Chalkboard its chalk-dust texture.
+* **Boundary glow** (W10) — when the material sets ``boundary_glow``,
+  the open-boundary edges of the mesh are drawn on top in an accent
+  colour, ``≈2×`` wire width.  Closed meshes (sphere / torus) emit no
+  extra strokes because their topology has no boundary.
 """
 
 from __future__ import annotations
 
 import numpy as np
 
-from sheaf.materials import Material
+from sheaf.materials import (
+    DEFAULT_SURFACE_FILL,
+    Material,
+    VectorParams,
+    resolve_vector_params,
+)
 from sheaf.numeric.mesh import AdaptiveMesh
 from sheaf.vector.bsp import painter_sort
 from sheaf.vector.camera import Camera
 
-_DEFAULT_FILL = "#c8cdd4"
+# Kept for backwards-compat with ``sheaf.vector.pgfplots`` imports.
+_DEFAULT_FILL = DEFAULT_SURFACE_FILL
 
 _NAMED_COLORS = {
     "white": "ffffff",
@@ -55,46 +68,40 @@ def emit_tikz(
     The body is ``\\begin{tikzpicture}...\\end{tikzpicture}`` — wrap with
     :func:`tikz_document` for a standalone compilable file.
     """
+    params = resolve_vector_params(material)
+
     fragments = painter_sort(mesh, np.asarray(camera.position, dtype=float))
     projected = [camera.project(f) for f in fragments]
 
-    fill_hex = _hex6(
-        material.params["surface_fill"] if material else _DEFAULT_FILL
-    )
-    edge_raw = material.params.get("wire_color") if material else None
-    alpha = float(material.params.get("alpha", 1.0)) if material else 1.0
-    wire_width_pt = (
-        float(material.params.get("wire_width", 0.3)) if material else 0.3
-    )
-    shows_edges = edge_raw is not None
-
     lines: list[str] = [f"\\begin{{tikzpicture}}[scale={scale_cm:.5f}]"]
-    lines.append(f"  \\definecolor{{sheaffill}}{{HTML}}{{{fill_hex}}}")
-    if shows_edges:
-        edge_hex = _hex6(edge_raw)
-        lines.append(f"  \\definecolor{{sheafedge}}{{HTML}}{{{edge_hex}}}")
+    lines.extend(_color_definitions(params))
 
-    fill_opts = ["fill=sheaffill"]
-    if alpha < 1.0:
-        fill_opts.append(f"fill opacity={alpha:.3f}")
-    if shows_edges:
-        fill_opts.append("draw=sheafedge")
-        fill_opts.append(f"line width={wire_width_pt:.3f}pt")
-    options = ", ".join(fill_opts)
+    fill_options = _fill_options(params)
+    hatch_options = _hatch_options(params) if params.has_hatch else None
 
     for tri2 in projected:
         path = " -- ".join(f"({p[0]:.5f},{p[1]:.5f})" for p in tri2)
-        lines.append(f"  \\fill[{options}] {path} -- cycle;")
+        lines.append(f"  \\fill[{fill_options}] {path} -- cycle;")
+        if hatch_options is not None:
+            lines.append(f"  \\fill[{hatch_options}] {path} -- cycle;")
+
+    if params.boundary_glow:
+        lines.extend(_boundary_glow_strokes(mesh, camera, params))
 
     lines.append("\\end{tikzpicture}")
     return "\n".join(lines) + "\n"
 
 
 def tikz_document(body: str, *, border_pt: int = 2) -> str:
-    """Wrap ``body`` in a minimal compilable ``standalone`` document."""
+    """Wrap ``body`` in a minimal compilable ``standalone`` document.
+
+    The ``patterns`` TikZ library is always loaded so hatch-bearing
+    materials (W10 Chalkboard) compile without a preamble tweak.
+    """
     return (
         f"\\documentclass[tikz,border={border_pt}pt]{{standalone}}\n"
         "\\usepackage{tikz}\n"
+        "\\usetikzlibrary{patterns}\n"
         "\\begin{document}\n"
         f"{body}"
         "\\end{document}\n"
@@ -104,6 +111,57 @@ def tikz_document(body: str, *, border_pt: int = 2) -> str:
 # ---------------------------------------------------------------------------
 # Internals
 # ---------------------------------------------------------------------------
+
+
+def _color_definitions(params: VectorParams) -> list[str]:
+    defs = [f"  \\definecolor{{sheaffill}}{{HTML}}{{{_hex6(params.surface_fill)}}}"]
+    if params.shows_edges:
+        defs.append(f"  \\definecolor{{sheafedge}}{{HTML}}{{{_hex6(params.wire_color)}}}")
+    if params.has_hatch:
+        defs.append(f"  \\definecolor{{sheafhatch}}{{HTML}}{{{_hex6(params.hatch_color)}}}")
+    if params.boundary_glow:
+        defs.append(
+            f"  \\definecolor{{sheafglow}}{{HTML}}{{{_hex6(params.boundary_glow_color)}}}"
+        )
+    return defs
+
+
+def _fill_options(params: VectorParams) -> str:
+    opts = ["fill=sheaffill"]
+    if params.is_translucent:
+        opts.append(f"fill opacity={params.alpha:.3f}")
+    if params.shows_edges:
+        opts.append("draw=sheafedge")
+        opts.append(f"line width={params.wire_width_pt:.3f}pt")
+    return ", ".join(opts)
+
+
+def _hatch_options(params: VectorParams) -> str:
+    opts = [f"pattern={params.hatch_pattern}", "pattern color=sheafhatch"]
+    if params.is_translucent:
+        opts.append(f"fill opacity={params.alpha:.3f}")
+    return ", ".join(opts)
+
+
+def _boundary_glow_strokes(
+    mesh: AdaptiveMesh, camera: Camera, params: VectorParams
+) -> list[str]:
+    from sheaf.numeric.topology import analyze
+
+    topo = analyze(mesh)
+    if len(topo.boundary_edges) == 0:
+        return []
+    glow_width = params.wire_width_pt * 2.0
+    pts2 = camera.project(mesh.points)
+    out: list[str] = []
+    for a, b in topo.boundary_edges:
+        ax, ay = pts2[int(a)]
+        bx, by = pts2[int(b)]
+        out.append(
+            f"  \\draw[draw=sheafglow, line width={glow_width:.3f}pt] "
+            f"({ax:.5f},{ay:.5f}) -- ({bx:.5f},{by:.5f});"
+        )
+    return out
 
 
 def _hex6(color: str) -> str:

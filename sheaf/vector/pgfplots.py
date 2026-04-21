@@ -1,4 +1,4 @@
-"""PGFPlots backend — Month 3 W9.
+"""PGFPlots backend — Month 3 W9 + Month 3 W10.
 
 Where the W8 :func:`sheaf.vector.tikz.emit_tikz` lays down per-triangle
 ``\\fill`` paths under our own BSP painter, this backend lowers an
@@ -12,16 +12,29 @@ Each consecutive triple of coordinates inside the ``coordinates {...}``
 block defines one triangle; for ``M`` triangles we emit ``3·M`` points.
 Material parameters surface as the fill colour, optional edge colour,
 line width, and ``fill opacity``.
+
+W10 additions
+-------------
+
+* **Boundary glow** — when the material sets ``boundary_glow``, each
+  open-boundary edge is emitted as its own ``\\addplot3`` line segment
+  in an accent colour, after the patch.  Closed meshes emit nothing
+  extra.
+* **Hatch pattern** — not supported by PGFPlots' ``shader=flat`` patch
+  directive.  When the material sets ``hatch_pattern``, the PGFPlots
+  emitter silently degrades to the solid fill (the TikZ emitter handles
+  the hatch).  Callers can detect the mismatch by comparing the emitted
+  bodies.
 """
 
 from __future__ import annotations
 
 import math
 
-from sheaf.materials import Material
+from sheaf.materials import Material, VectorParams, resolve_vector_params
 from sheaf.numeric.mesh import AdaptiveMesh
 from sheaf.vector.camera import Camera
-from sheaf.vector.tikz import _DEFAULT_FILL, _hex6
+from sheaf.vector.tikz import _hex6
 
 
 def view_from_camera(camera: Camera) -> tuple[float, float]:
@@ -53,45 +66,31 @@ def emit_pgfplots(
     """
     cam = camera if camera is not None else Camera.isometric()
     az, el = view_from_camera(cam)
-
-    fill_hex = _hex6(
-        material.params["surface_fill"] if material else _DEFAULT_FILL
-    )
-    edge_raw = material.params.get("wire_color") if material else None
-    alpha = float(material.params.get("alpha", 1.0)) if material else 1.0
-    wire_width_pt = (
-        float(material.params.get("wire_width", 0.3)) if material else 0.3
-    )
-    shows_edges = edge_raw is not None
-
-    plot_opts: list[str] = [
-        "patch",
-        "patch type=triangle",
-        "shader=flat",
-        "fill=sheaffill",
-    ]
-    if shows_edges:
-        plot_opts.append("draw=sheafedge")
-        plot_opts.append(f"line width={wire_width_pt:.3f}pt")
-    else:
-        plot_opts.append("draw=none")
-    if alpha < 1.0:
-        plot_opts.append(f"fill opacity={alpha:.3f}")
+    params = resolve_vector_params(material)
 
     lines: list[str] = ["\\begin{tikzpicture}"]
-    lines.append(f"  \\definecolor{{sheaffill}}{{HTML}}{{{fill_hex}}}")
-    if shows_edges:
-        edge_hex = _hex6(edge_raw)
-        lines.append(f"  \\definecolor{{sheafedge}}{{HTML}}{{{edge_hex}}}")
+    lines.append(f"  \\definecolor{{sheaffill}}{{HTML}}{{{_hex6(params.surface_fill)}}}")
+    if params.shows_edges:
+        lines.append(
+            f"  \\definecolor{{sheafedge}}{{HTML}}{{{_hex6(params.wire_color)}}}"
+        )
+    if params.boundary_glow:
+        lines.append(
+            f"  \\definecolor{{sheafglow}}{{HTML}}{{{_hex6(params.boundary_glow_color)}}}"
+        )
     lines.append(
         f"  \\begin{{axis}}[view={{{az:.3f}}}{{{el:.3f}}}, {axis_options}]"
     )
-    lines.append(f"    \\addplot3[{', '.join(plot_opts)}]")
+    lines.append(f"    \\addplot3[{_patch_options(params)}]")
     lines.append("      coordinates {")
     coords = mesh.points[mesh.triangles].reshape(-1, 3)
     for x, y, z in coords:
         lines.append(f"        ({x:.5f},{y:.5f},{z:.5f})")
     lines.append("      };")
+
+    if params.boundary_glow:
+        lines.extend(_boundary_glow_addplots(mesh, params))
+
     lines.append("  \\end{axis}")
     lines.append("\\end{tikzpicture}")
     return "\n".join(lines) + "\n"
@@ -114,3 +113,48 @@ def pgfplots_document(
         f"{body}"
         "\\end{document}\n"
     )
+
+
+# ---------------------------------------------------------------------------
+# Internals
+# ---------------------------------------------------------------------------
+
+
+def _patch_options(params: VectorParams) -> str:
+    opts = ["patch", "patch type=triangle", "shader=flat", "fill=sheaffill"]
+    if params.shows_edges:
+        opts.append("draw=sheafedge")
+        opts.append(f"line width={params.wire_width_pt:.3f}pt")
+    else:
+        opts.append("draw=none")
+    if params.is_translucent:
+        opts.append(f"fill opacity={params.alpha:.3f}")
+    return ", ".join(opts)
+
+
+def _boundary_glow_addplots(mesh: AdaptiveMesh, params: VectorParams) -> list[str]:
+    """Emit one ``\\addplot3`` per open-boundary edge, in accent colour.
+
+    Each edge is a two-point line plot carrying ``forget plot`` so it
+    never enters any legend.  Closed meshes pass through with no output.
+    """
+    from sheaf.numeric.topology import analyze
+
+    topo = analyze(mesh)
+    if len(topo.boundary_edges) == 0:
+        return []
+    glow_width = params.wire_width_pt * 2.0
+    style = (
+        f"draw=sheafglow, line width={glow_width:.3f}pt, "
+        "no marks, forget plot"
+    )
+    out: list[str] = []
+    for a, b in topo.boundary_edges:
+        pa = mesh.points[int(a)]
+        pb = mesh.points[int(b)]
+        out.append(f"    \\addplot3[{style}]")
+        out.append(
+            f"      coordinates {{ ({pa[0]:.5f},{pa[1]:.5f},{pa[2]:.5f}) "
+            f"({pb[0]:.5f},{pb[1]:.5f},{pb[2]:.5f}) }};"
+        )
+    return out

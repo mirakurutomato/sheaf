@@ -128,6 +128,66 @@ def test_emit_pgfplots_view_string_carries_camera_angles() -> None:
 
 
 # ---------------------------------------------------------------------------
+# W10 — Glass boundary glow and Chalkboard hatch degradation
+# ---------------------------------------------------------------------------
+
+
+def test_emit_pgfplots_glass_emits_boundary_glow_addplots() -> None:
+    """``Glass`` on an open surface must surface accent edges as separate
+    ``\\addplot3`` line plots after the patch directive."""
+    body = emit_pgfplots(_simple_mesh(), Camera.isometric(), Glass)
+    assert "\\definecolor{sheafglow}{HTML}{eaf6ff}" in body
+    assert "draw=sheafglow" in body
+    assert "no marks" in body
+    assert "forget plot" in body
+
+
+def test_emit_pgfplots_no_glow_when_material_disables_it() -> None:
+    from types import MappingProxyType
+
+    from sheaf.materials import Material
+
+    plain = Material(
+        name="plain",
+        params=MappingProxyType(
+            {"surface_fill": "#ff00ff", "boundary_glow": False}
+        ),
+    )
+    body = emit_pgfplots(_simple_mesh(), Camera.isometric(), plain)
+    assert "sheafglow" not in body
+
+
+def test_emit_pgfplots_glass_on_closed_mesh_emits_no_glow_addplots() -> None:
+    """A closed tetrahedron has no open boundary: the glow colour is
+    defined but zero boundary ``\\addplot3`` commands are emitted."""
+    points = np.array(
+        [[1.0, 1.0, 1.0], [-1.0, -1.0, 1.0], [-1.0, 1.0, -1.0], [1.0, -1.0, -1.0]],
+        dtype=float,
+    )
+    tris = np.array(
+        [[0, 2, 1], [0, 1, 3], [0, 3, 2], [1, 2, 3]],
+        dtype=np.int64,
+    )
+    params_ignored = np.zeros((4, 2))
+    mesh = AdaptiveMesh(params=params_ignored, points=points, triangles=tris)
+    body = emit_pgfplots(mesh, Camera.isometric(), Glass)
+    assert "\\definecolor{sheafglow}" in body
+    assert "draw=sheafglow" not in body
+
+
+def test_emit_pgfplots_chalkboard_hatch_is_silently_dropped() -> None:
+    """Chalkboard sets ``hatch_pattern`` but PGFPlots' flat patch shader
+    cannot render it; the emitter must degrade to the solid fill rather
+    than emit an invalid ``pattern=...`` directive that would explode
+    under LaTeX compile."""
+    body = emit_pgfplots(_simple_mesh(), Camera.isometric(), Chalkboard)
+    assert "pattern=" not in body
+    assert "sheafhatch" not in body
+    # The solid fill is still present.
+    assert "\\definecolor{sheaffill}{HTML}{2b3a2e}" in body
+
+
+# ---------------------------------------------------------------------------
 # Document wrapper
 # ---------------------------------------------------------------------------
 

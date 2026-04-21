@@ -152,6 +152,100 @@ def test_emit_tikz_blueprint_carries_expected_hex() -> None:
 
 
 # ---------------------------------------------------------------------------
+# W10 — Chalkboard hatch pattern
+# ---------------------------------------------------------------------------
+
+
+def test_emit_tikz_chalkboard_emits_hatch_pattern() -> None:
+    """Chalkboard defines ``hatch_pattern='crosshatch dots'`` — TikZ must
+    both define the hatch colour and emit a second ``\\fill`` pass using
+    TikZ's ``patterns`` library on every painter fragment."""
+    body = emit_tikz(_simple_mesh(), Camera.isometric(distance=5.0), Chalkboard)
+    assert "\\definecolor{sheafhatch}{HTML}{ffffff}" in body
+    assert "pattern=crosshatch dots" in body
+    assert "pattern color=sheafhatch" in body
+
+
+def test_emit_tikz_hatch_overlay_doubles_fill_count() -> None:
+    """With a hatch pattern set, every painter triangle gets an overlay
+    ``\\fill`` in addition to the solid one."""
+    from sheaf.vector.bsp import painter_sort
+
+    mesh = _simple_mesh()
+    cam = Camera.isometric(distance=5.0)
+    fragments = painter_sort(mesh, np.asarray(cam.position, dtype=float))
+    body = emit_tikz(mesh, cam, Chalkboard)
+    assert body.count("\\fill") == 2 * len(fragments)
+
+
+def test_emit_tikz_blueprint_has_no_hatch() -> None:
+    """Blueprint never sets ``hatch_pattern``: the overlay must stay off."""
+    body = emit_tikz(_simple_mesh(), Camera.isometric(distance=5.0), Blueprint)
+    assert "pattern=" not in body
+    assert "sheafhatch" not in body
+
+
+def test_tikz_document_loads_patterns_library() -> None:
+    src = tikz_document("\\begin{tikzpicture}\\end{tikzpicture}\n")
+    assert "\\usetikzlibrary{patterns}" in src
+
+
+# ---------------------------------------------------------------------------
+# W10 — Glass boundary glow
+# ---------------------------------------------------------------------------
+
+
+def test_emit_tikz_glass_emits_boundary_glow_on_open_surface() -> None:
+    """``Glass`` sets ``boundary_glow=True``; an open bounded surface must
+    therefore surface accent strokes in the TikZ body."""
+    body = emit_tikz(_simple_mesh(), Camera.isometric(distance=5.0), Glass)
+    assert "\\definecolor{sheafglow}{HTML}{eaf6ff}" in body
+    assert "draw=sheafglow" in body
+
+
+def test_emit_tikz_glow_stroke_width_is_double_wire_width() -> None:
+    """The glow line width is ``2× wire_width`` by construction."""
+    body = emit_tikz(_simple_mesh(), Camera.isometric(distance=5.0), Glass)
+    # Glass wire_width = 0.15 ⇒ glow = 0.300 pt.
+    assert "draw=sheafglow, line width=0.300pt" in body
+
+
+def test_emit_tikz_no_glow_when_material_disables_it() -> None:
+    """A custom material with ``boundary_glow=False`` emits no glow
+    colour definition nor glow strokes even though the mesh has boundaries."""
+    from types import MappingProxyType
+
+    from sheaf.materials import Material
+
+    plain = Material(
+        name="plain",
+        params=MappingProxyType(
+            {"surface_fill": "#ff00ff", "alpha": 1.0, "boundary_glow": False}
+        ),
+    )
+    body = emit_tikz(_simple_mesh(), Camera.isometric(distance=5.0), plain)
+    assert "sheafglow" not in body
+
+
+def test_emit_tikz_glass_on_closed_mesh_emits_no_glow_strokes() -> None:
+    """A closed tetrahedron has no open boundary; Glass defines the glow
+    colour but emits zero ``\\draw[draw=sheafglow ...]`` commands."""
+    points = np.array(
+        [[1.0, 1.0, 1.0], [-1.0, -1.0, 1.0], [-1.0, 1.0, -1.0], [1.0, -1.0, -1.0]],
+        dtype=float,
+    )
+    tris = np.array(
+        [[0, 2, 1], [0, 1, 3], [0, 3, 2], [1, 2, 3]],
+        dtype=np.int64,
+    )
+    params_ignored = np.zeros((4, 2))
+    mesh = AdaptiveMesh(params=params_ignored, points=points, triangles=tris)
+    body = emit_tikz(mesh, Camera.isometric(distance=5.0), Glass)
+    assert "\\definecolor{sheafglow}" in body
+    assert "draw=sheafglow" not in body
+
+
+# ---------------------------------------------------------------------------
 # Month 2 gate — pdflatex / lualatex real compilation
 # ---------------------------------------------------------------------------
 

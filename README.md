@@ -8,7 +8,7 @@
   <a href="https://www.python.org"><img alt="Python 3.12+" src="https://img.shields.io/badge/python-3.12+-3776AB.svg?logo=python&logoColor=white"></a>
   <a href="LICENSE"><img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache_2.0-blue.svg"></a>
   <a href="#status"><img alt="Status: pre-alpha" src="https://img.shields.io/badge/status-pre--alpha-orange.svg"></a>
-  <a href="tests/"><img alt="Tests: 142 passing" src="https://img.shields.io/badge/tests-142_passing-brightgreen.svg"></a>
+  <a href="tests/"><img alt="Tests: 163 passing" src="https://img.shields.io/badge/tests-163_passing-brightgreen.svg"></a>
   <a href="https://github.com/astral-sh/ruff"><img alt="Ruff" src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json"></a>
   <a href="https://doi.org/10.5281/zenodo.19685861"><img alt="DOI" src="https://zenodo.org/badge/DOI/10.5281/zenodo.19685861.svg"></a>
 </p>
@@ -159,7 +159,7 @@ it reads — no parentheses.
        ▼             ▼
    PyVista      Vector Pipeline      ← BSP + painter sort → TikZ
    preview      (Month 2 W7–W8 ✓)      + PGFPlots (W9 ✓)
-                    │
+                    │                   + material refinement (W10 ✓)
                     ▼
               LaTeX Sync              ← main.tex parser, \documentclass,
               (Month 3 W9 ✓)            geometry, fontspec → engine hint
@@ -167,7 +167,7 @@ it reads — no parentheses.
 
 ## Status
 
-**Pre-alpha.** Month 1 + Month 2 complete; Month 3 W9 in (2026-04-21 → 2026-06-23):
+**Pre-alpha.** Month 1 + Month 2 complete; Month 3 W9–W10 in (2026-04-21 → 2026-06-30):
 
 - **W1** — DSL scaffold (`Surface`, `Curve`, `Implicit`, `Scene`, `Paper`),
   material presets, preview-driver ABC, LaTeX compile harness (`pdflatex`
@@ -238,6 +238,20 @@ it reads — no parentheses.
   engine=...)` returns a `PaperArtifact` carrying the picture body, the
   full standalone source, and the parsed `PaperContext`.
 
+- **W10** — Material preset refinement for the vector pipeline.  A new
+  `sheaf.materials.VectorParams` dataclass + `resolve_vector_params()`
+  funnels every per-figure default (surface fill, wire colour, alpha,
+  wire width, boundary glow, hatch pattern) through a single resolver so
+  the TikZ and PGFPlots emitters can no longer drift as the schema
+  grows.  `Glass.boundary_glow` — previously dead — is now wired through
+  `sheaf.numeric.topology.analyze`: open surfaces emit accent strokes at
+  twice the wire width on every boundary edge (TikZ via `\draw`,
+  PGFPlots via per-edge `\addplot3`), while closed meshes (sphere,
+  tetrahedron) stay stroke-free.  `Chalkboard.hatch_pattern` layers a
+  TikZ-`patterns` overlay (`crosshatch dots` in white on dark green) for
+  genuine chalk texture; PGFPlots silently degrades to the solid fill
+  because its flat-shader patch cannot host a TikZ pattern.
+
 Validation gates met: sphere polar density ≥ 2× equatorial; Gaussian-peak
 origin density ≥ 2× ring; every mesh edge shared by ≤ 2 triangles; sphere
 χ = 2, torus χ = 0, Möbius non-orientable after welding; paraboloid →
@@ -247,10 +261,13 @@ paint before front-faces; Sutherland-Hodgman split conserves triangle
 area; pdflatex compiles emitted TikZ for Chalkboard, Blueprint, and
 Glass; pdflatex **and** lualatex compile emitted PGFPlots for the same
 materials; parser correctly resolves textwidth for article/amsart at
-10/11/12pt and honours `geometry` overrides in pt/in/cm.  **142 tests
-pass**, `ruff` clean.
+10/11/12pt and honours `geometry` overrides in pt/in/cm; Glass emits
+boundary-glow strokes on open surfaces and *none* on a closed
+tetrahedron; Chalkboard surfaces a TikZ hatch overlay while PGFPlots
+degrades to the plain patch.  **163 tests pass**, `ruff` clean.
 
-Next up (Month 3): material preset refinement for the vector pipeline (W10).
+Next up (Month 3): LaTeX compile CI covering pdflatex and lualatex for
+both backends (W11).
 
 ## Running the tests
 
