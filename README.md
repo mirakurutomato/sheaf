@@ -8,7 +8,7 @@
   <a href="https://www.python.org"><img alt="Python 3.12+" src="https://img.shields.io/badge/python-3.12+-3776AB.svg?logo=python&logoColor=white"></a>
   <a href="LICENSE"><img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache_2.0-blue.svg"></a>
   <a href="#status"><img alt="Status: pre-alpha" src="https://img.shields.io/badge/status-pre--alpha-orange.svg"></a>
-  <a href="tests/"><img alt="Tests: 38 passing" src="https://img.shields.io/badge/tests-38_passing-brightgreen.svg"></a>
+  <a href="tests/"><img alt="Tests: 103 passing" src="https://img.shields.io/badge/tests-103_passing-brightgreen.svg"></a>
   <a href="https://github.com/astral-sh/ruff"><img alt="Ruff" src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json"></a>
 </p>
 
@@ -113,6 +113,23 @@ preview(saddle @ Chalkboard)                   # interactive VTK window
 screenshot(saddle @ Chalkboard, "saddle.png")  # headless high-DPI PNG
 ```
 
+For the W8 vector pipeline, lower the same surface to back-to-front-sorted
+TikZ that any LaTeX engine can compile:
+
+```python
+from sheaf import Surface, Chalkboard
+from sheaf.numeric import adaptive_mesh, compiled
+from sheaf.vector import Camera, emit_tikz, tikz_document
+from sympy.abc import x, y
+
+mesh = adaptive_mesh(compiled(Surface(z=x**2 + y**2, x=(-1, 1), y=(-1, 1))))
+src  = tikz_document(emit_tikz(mesh, Camera.isometric(), Chalkboard))
+# `pdflatex` consumes `src` directly — no preamble setup required.
+```
+
+`examples/tikz_emit.py` runs this end-to-end and writes
+`examples/gallery/tikz_emit.{tex,pdf}`.
+
 ## Operator semantics
 
 | Operator | Meaning                                   | Example                       |
@@ -140,15 +157,16 @@ it reads — no parentheses.
        ┌──────┴──────┐
        ▼             ▼
    PyVista      Vector Pipeline      ← BSP + painter sort → TikZ codegen
-   preview      (Month 2 W7–W8)
+   preview      (Month 2 W7–W8 ✓)
                     │
                     ▼
               LaTeX Sync              ← main.tex parser, \linewidth, font
+                                        (Month 3 W9)
 ```
 
 ## Status
 
-**Pre-alpha.** Month 1 W1–W3 delivered (2026-04-21 → 2026-05-12):
+**Pre-alpha.** Month 1 complete + Month 2 fully delivered (2026-04-21 → 2026-06-16):
 
 - **W1** — DSL scaffold (`Surface`, `Curve`, `Implicit`, `Scene`, `Paper`),
   material presets, preview-driver ABC, LaTeX compile harness (`pdflatex`
@@ -161,13 +179,60 @@ it reads — no parentheses.
   Rivara longest-edge bisection with a priority queue keyed on
   `max(chord_error, 1 / σ_min(J))`. Conforming (no T-junctions) and budget
   aware.
+- **W4** — PyVista preview fully wired into the adaptive mesh; material
+  translation unit tests and headless screenshot regression guarding the
+  hue family of each preset (`test_preview_visual.py`).
+- **W5** — Mesh topology analysis (`sheaf.numeric.topology`).
+  `analyze(mesh)` returns boundary edges, non-manifold edges, connected
+  components, Euler characteristic, closedness / manifoldness / orientability;
+  `weld_duplicate_vertices` collapses geometric duplicates so parametric
+  closed surfaces (sphere, torus) recover their true topology and even the
+  Möbius twist (a *geometric* identification in the chosen parametrisation)
+  is correctly detected as non-orientable.
+
+- **W6** — Hessian-eigenvalue critical-point classification
+  (`sheaf.numeric.curvature`). For every explicit surface `z = f(u, v)`,
+  `classify_critical_points` locates stationary points by cell-wise
+  sign-change detection on ∇f and labels each with its Hessian signature:
+  `"minimum"`, `"maximum"`, `"saddle"`, or `"degenerate"` (monkey saddle).
+  The companion `sheaf.preview.accent_lights` turns the classification into
+  declarative `AccentLight` descriptors — warm key above minima, cool rim
+  beneath maxima, neutral grazing rim across saddles — scaled by the scene
+  bounding box and ready for the PyVista driver / TikZ shader.
+
+- **W7** — BSP painter's-algorithm hidden-surface removal
+  (`sheaf.vector.bsp`). A Binary Space Partition tree classifies triangles
+  (FRONT / BACK / COPLANAR / SPANNING) against each splitter plane;
+  SPANNING triangles are Sutherland-Hodgman-clipped into front- and
+  back-half fragments.  `paint(tree, view)` returns a strict back-to-front
+  order for the vector emitter in W8.  On a convex body every back-facing
+  triangle is emitted before every front-facing one — the certificate that
+  no painter-order violation remains.  The build is iterative (explicit
+  work stack, no Python recursion limit on deep trees) and the splitter is
+  chosen by an 8-candidate, fully-vectorised SPANNING-minimisation
+  heuristic so that mesh-conforming inputs incur zero splits.
+
+- **W8** — TikZ code generator (`sheaf.vector.tikz`) and orthographic
+  axonometric `Camera` (`sheaf.vector.camera`).  `emit_tikz(mesh, camera,
+  material)` returns a `\begin{tikzpicture}` body whose `\fill` paths are
+  ordered by the W7 painter, with per-figure `\definecolor` for the
+  material's surface fill and (optional) wire colour, plus `fill opacity`
+  for translucent materials such as `Glass`.  `tikz_document(body)` wraps
+  the body in a minimal `standalone` document for one-shot compilation.
+  **Month 2 gate met**: a real surface goes through adaptive mesh → BSP
+  sort → TikZ → `pdflatex` end-to-end with returncode 0 across every
+  shipped material preset.
 
 Validation gates met: sphere polar density ≥ 2× equatorial; Gaussian-peak
-origin density ≥ 2× ring; every mesh edge shared by ≤ 2 triangles.
-38 tests pass, `ruff` clean.
+origin density ≥ 2× ring; every mesh edge shared by ≤ 2 triangles; sphere
+χ = 2, torus χ = 0, Möbius non-orientable after welding; paraboloid →
+minimum, inverted paraboloid → maximum, `x² − y²` → saddle, monkey saddle
+→ degenerate, tilted plane → no critical points; tetrahedron back-faces
+paint before front-faces; Sutherland-Hodgman split conserves triangle
+area; pdflatex compiles emitted TikZ for Chalkboard, Blueprint, and Glass.
+**103 tests pass**, `ruff` clean.
 
-Next up (Month 2): non-manifold detection, Hessian-eigenvalue light
-placement, BSP hidden-surface removal, and the TikZ code generator.
+Next up (Month 3): PGFPlots backend + `main.tex` parser (W9).
 
 ## Running the tests
 

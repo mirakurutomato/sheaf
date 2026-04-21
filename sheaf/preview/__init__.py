@@ -12,5 +12,13 @@ VisPy is available for large-mesh / GPU-heavy cases.
 from __future__ import annotations
 
 from sheaf.preview.driver import PreviewDriver, preview, screenshot
+from sheaf.preview.lighting import AccentLight, LightKind, accent_lights
 
-__all__ = ["PreviewDriver", "preview", "screenshot"]
+__all__ = [
+    "AccentLight",
+    "LightKind",
+    "PreviewDriver",
+    "accent_lights",
+    "preview",
+    "screenshot",
+]

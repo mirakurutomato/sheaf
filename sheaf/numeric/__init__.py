@@ -26,7 +26,13 @@ from sheaf.numeric.compiler import (
     CompiledSurface,
     compiled,
 )
+from sheaf.numeric.curvature import (
+    CriticalKind,
+    CriticalPoint,
+    classify_critical_points,
+)
 from sheaf.numeric.mesh import AdaptiveMesh, adaptive_mesh
+from sheaf.numeric.topology import Topology, analyze, weld_duplicate_vertices
 
 __all__ = [
     "AdaptiveMesh",
@@ -34,9 +40,15 @@ __all__ = [
     "CompiledCurve",
     "CompiledImplicit",
     "CompiledSurface",
+    "CriticalKind",
+    "CriticalPoint",
+    "Topology",
     "adaptive_mesh",
+    "analyze",
+    "classify_critical_points",
     "compiled",
     "gradient_zeros",
     "is_singular",
     "singular_points",
+    "weld_duplicate_vertices",
 ]
