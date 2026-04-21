@@ -8,6 +8,7 @@
   <a href="https://www.python.org"><img alt="Python 3.12+" src="https://img.shields.io/badge/python-3.12+-3776AB.svg?logo=python&logoColor=white"></a>
   <a href="LICENSE"><img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache_2.0-blue.svg"></a>
   <a href="#status"><img alt="Status: pre-alpha" src="https://img.shields.io/badge/status-pre--alpha-orange.svg"></a>
+  <a href="https://github.com/mirakurutomato/sheaf/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/mirakurutomato/sheaf/actions/workflows/ci.yml/badge.svg"></a>
   <a href="tests/"><img alt="Tests: 163 passing" src="https://img.shields.io/badge/tests-163_passing-brightgreen.svg"></a>
   <a href="https://github.com/astral-sh/ruff"><img alt="Ruff" src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json"></a>
   <a href="https://doi.org/10.5281/zenodo.19685861"><img alt="DOI" src="https://zenodo.org/badge/DOI/10.5281/zenodo.19685861.svg"></a>
@@ -167,7 +168,7 @@ it reads — no parentheses.
 
 ## Status
 
-**Pre-alpha.** Month 1 + Month 2 complete; Month 3 W9–W10 in (2026-04-21 → 2026-06-30):
+**Pre-alpha.** Month 1 + Month 2 complete; Month 3 W9–W11 in (2026-04-21 → 2026-07-07):
 
 - **W1** — DSL scaffold (`Surface`, `Curve`, `Implicit`, `Scene`, `Paper`),
   material presets, preview-driver ABC, LaTeX compile harness (`pdflatex`
@@ -252,22 +253,35 @@ it reads — no parentheses.
   genuine chalk texture; PGFPlots silently degrades to the solid fill
   because its flat-shader patch cannot host a TikZ pattern.
 
+- **W11** — LaTeX compile CI.  A two-job GitHub Actions workflow
+  (`.github/workflows/ci.yml`) runs on every push and pull request.
+  The **`fast`** job does `ruff check .` plus `pytest -m "not latex"`
+  (147 tests, ≈40 s) for quick-feedback correctness.  The **`latex`**
+  job installs TeX Live (`texlive-latex-recommended`,
+  `texlive-latex-extra`, `texlive-pictures`, `texlive-luatex`,
+  `texlive-fonts-recommended`) and runs `pytest -m latex -v`, exercising
+  the full real-compile matrix: **2 engines × 2 backends × 3 materials
+  = 16 cases**.  Any regression that slips past the Python-level
+  assertions — an unclosed `axis` environment, a mistyped pattern name,
+  a package the preamble forgets — now fails on PR before it reaches
+  `main`.
+
 Validation gates met: sphere polar density ≥ 2× equatorial; Gaussian-peak
 origin density ≥ 2× ring; every mesh edge shared by ≤ 2 triangles; sphere
 χ = 2, torus χ = 0, Möbius non-orientable after welding; paraboloid →
 minimum, inverted paraboloid → maximum, `x² − y²` → saddle, monkey saddle
 → degenerate, tilted plane → no critical points; tetrahedron back-faces
 paint before front-faces; Sutherland-Hodgman split conserves triangle
-area; pdflatex compiles emitted TikZ for Chalkboard, Blueprint, and
-Glass; pdflatex **and** lualatex compile emitted PGFPlots for the same
-materials; parser correctly resolves textwidth for article/amsart at
-10/11/12pt and honours `geometry` overrides in pt/in/cm; Glass emits
-boundary-glow strokes on open surfaces and *none* on a closed
-tetrahedron; Chalkboard surfaces a TikZ hatch overlay while PGFPlots
-degrades to the plain patch.  **163 tests pass**, `ruff` clean.
+area; pdflatex **and** lualatex compile emitted TikZ and PGFPlots for
+Chalkboard, Blueprint, and Glass *on every CI run*; parser correctly
+resolves textwidth for article/amsart at 10/11/12pt and honours
+`geometry` overrides in pt/in/cm; Glass emits boundary-glow strokes on
+open surfaces and *none* on a closed tetrahedron; Chalkboard surfaces a
+TikZ hatch overlay while PGFPlots degrades to the plain patch.  **163
+tests pass** (147 fast + 16 LaTeX gate), `ruff` clean.
 
-Next up (Month 3): LaTeX compile CI covering pdflatex and lualatex for
-both backends (W11).
+Next up (Month 3): gallery of 10+ example figures, documentation, and a
+performance pass on BSP-on-large-mesh throughput (W12).
 
 ## Running the tests
 
@@ -277,6 +291,23 @@ pytest
 
 LaTeX-integration tests execute automatically when `pdflatex` or `lualatex`
 is on `PATH`; otherwise they skip cleanly.
+
+### CI
+
+Every push and pull request runs the
+[`ci` workflow](.github/workflows/ci.yml) on `ubuntu-latest` in two
+parallel jobs:
+
+- **`fast`** — `ruff check .` + `pytest -m "not latex"` (147 tests,
+  ≈40 s).  Preview tests `importorskip` when PyVista is absent, so the
+  dev-only install is enough.
+- **`latex`** — `apt-get install texlive-latex-recommended
+  texlive-latex-extra texlive-pictures texlive-luatex
+  texlive-fonts-recommended`, then `pytest -m latex -v`.  This executes
+  the full gate matrix: **2 engines (pdflatex / lualatex) × 2 backends
+  (TikZ / PGFPlots) × 3 materials (Chalkboard / Blueprint / Glass)** —
+  16 real-compile test cases — catching any regression in the emitter
+  output that a dry Python-only run would miss.
 
 ## Contributing
 
