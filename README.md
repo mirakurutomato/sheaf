@@ -8,8 +8,9 @@
   <a href="https://www.python.org"><img alt="Python 3.12+" src="https://img.shields.io/badge/python-3.12+-3776AB.svg?logo=python&logoColor=white"></a>
   <a href="LICENSE"><img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache_2.0-blue.svg"></a>
   <a href="#status"><img alt="Status: pre-alpha" src="https://img.shields.io/badge/status-pre--alpha-orange.svg"></a>
-  <a href="tests/"><img alt="Tests: 103 passing" src="https://img.shields.io/badge/tests-103_passing-brightgreen.svg"></a>
+  <a href="tests/"><img alt="Tests: 142 passing" src="https://img.shields.io/badge/tests-142_passing-brightgreen.svg"></a>
   <a href="https://github.com/astral-sh/ruff"><img alt="Ruff" src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json"></a>
+  <a href="https://doi.org/10.5281/zenodo.19685861"><img alt="DOI" src="https://zenodo.org/badge/DOI/10.5281/zenodo.19685861.svg"></a>
 </p>
 
 <p align="center">
@@ -156,17 +157,17 @@ it reads — no parentheses.
               │
        ┌──────┴──────┐
        ▼             ▼
-   PyVista      Vector Pipeline      ← BSP + painter sort → TikZ codegen
-   preview      (Month 2 W7–W8 ✓)
+   PyVista      Vector Pipeline      ← BSP + painter sort → TikZ
+   preview      (Month 2 W7–W8 ✓)      + PGFPlots (W9 ✓)
                     │
                     ▼
-              LaTeX Sync              ← main.tex parser, \linewidth, font
-                                        (Month 3 W9)
+              LaTeX Sync              ← main.tex parser, \documentclass,
+              (Month 3 W9 ✓)            geometry, fontspec → engine hint
 ```
 
 ## Status
 
-**Pre-alpha.** Month 1 complete + Month 2 fully delivered (2026-04-21 → 2026-06-16):
+**Pre-alpha.** Month 1 + Month 2 complete; Month 3 W9 in (2026-04-21 → 2026-06-23):
 
 - **W1** — DSL scaffold (`Surface`, `Curve`, `Implicit`, `Scene`, `Paper`),
   material presets, preview-driver ABC, LaTeX compile harness (`pdflatex`
@@ -223,16 +224,33 @@ it reads — no parentheses.
   sort → TikZ → `pdflatex` end-to-end with returncode 0 across every
   shipped material preset.
 
+- **W9** — PGFPlots backend (`sheaf.vector.pgfplots`) and `main.tex`
+  preamble parser (`sheaf.io.parse_main_tex`).  `emit_pgfplots` lowers an
+  `AdaptiveMesh` into a single `\addplot3 [patch, patch type=triangle]`
+  directive viewed under the camera's converted `view={az}{el}`;
+  `pgfplots_document(body)` wraps it in a `standalone` document with
+  `\usepackage{pgfplots}` + `\pgfplotsset{compat=1.18}`.  The preamble
+  parser returns a `PaperContext` with `documentclass`, options, the
+  resolved `textwidth_pt` (via the `geometry` package when present, else
+  the standard-class default table), and a `recommended_engine` of
+  `lualatex` whenever `fontspec` or `unicode-math` is loaded.  `Paper`
+  is now wired end-to-end: `Surface(...) @ Material >> Paper(main_tex,
+  engine=...)` returns a `PaperArtifact` carrying the picture body, the
+  full standalone source, and the parsed `PaperContext`.
+
 Validation gates met: sphere polar density ≥ 2× equatorial; Gaussian-peak
 origin density ≥ 2× ring; every mesh edge shared by ≤ 2 triangles; sphere
 χ = 2, torus χ = 0, Möbius non-orientable after welding; paraboloid →
 minimum, inverted paraboloid → maximum, `x² − y²` → saddle, monkey saddle
 → degenerate, tilted plane → no critical points; tetrahedron back-faces
 paint before front-faces; Sutherland-Hodgman split conserves triangle
-area; pdflatex compiles emitted TikZ for Chalkboard, Blueprint, and Glass.
-**103 tests pass**, `ruff` clean.
+area; pdflatex compiles emitted TikZ for Chalkboard, Blueprint, and
+Glass; pdflatex **and** lualatex compile emitted PGFPlots for the same
+materials; parser correctly resolves textwidth for article/amsart at
+10/11/12pt and honours `geometry` overrides in pt/in/cm.  **142 tests
+pass**, `ruff` clean.
 
-Next up (Month 3): PGFPlots backend + `main.tex` parser (W9).
+Next up (Month 3): material preset refinement for the vector pipeline (W10).
 
 ## Running the tests
 
@@ -252,6 +270,26 @@ welcome. Before opening a pull request please run:
 ```bash
 ruff check .
 pytest
+```
+
+## Citation
+
+If `sheaf` contributes to a published result, please cite the archived
+release:
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19685861.svg)](https://doi.org/10.5281/zenodo.19685861)
+
+```bibtex
+@software{toma_okugawa_2026_19685862,
+  author       = {Okugawa, Toma},
+  title        = {mirakurutomato/sheaf: v0.8.0-beta: TikZ Vector Pipeline (W8)},
+  month        = apr,
+  year         = 2026,
+  publisher    = {Zenodo},
+  version      = {v0.8.0-beta},
+  doi          = {10.5281/zenodo.19685862},
+  url          = {https://doi.org/10.5281/zenodo.19685862},
+}
 ```
 
 ## License

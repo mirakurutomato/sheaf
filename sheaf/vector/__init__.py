@@ -20,6 +20,7 @@ from sheaf.vector.bsp import (
     painter_sort,
 )
 from sheaf.vector.camera import Camera
+from sheaf.vector.pgfplots import emit_pgfplots, pgfplots_document, view_from_camera
 from sheaf.vector.tikz import emit_tikz, tikz_document
 
 __all__ = [
@@ -27,8 +28,11 @@ __all__ = [
     "Camera",
     "Plane",
     "build_bsp",
+    "emit_pgfplots",
     "emit_tikz",
     "paint",
     "painter_sort",
+    "pgfplots_document",
     "tikz_document",
+    "view_from_camera",
 ]
