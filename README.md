@@ -9,13 +9,17 @@
   <a href="LICENSE"><img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache_2.0-blue.svg"></a>
   <a href="#status"><img alt="Status: pre-alpha" src="https://img.shields.io/badge/status-pre--alpha-orange.svg"></a>
   <a href="https://github.com/mirakurutomato/sheaf/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/mirakurutomato/sheaf/actions/workflows/ci.yml/badge.svg"></a>
-  <a href="tests/"><img alt="Tests: 163 passing" src="https://img.shields.io/badge/tests-163_passing-brightgreen.svg"></a>
+  <a href="tests/"><img alt="Tests: 200 passing" src="https://img.shields.io/badge/tests-200_passing-brightgreen.svg"></a>
   <a href="https://github.com/astral-sh/ruff"><img alt="Ruff" src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json"></a>
   <a href="https://doi.org/10.5281/zenodo.19685861"><img alt="DOI" src="https://zenodo.org/badge/DOI/10.5281/zenodo.19685861.svg"></a>
 </p>
 
 <p align="center">
-  <img src="examples/gallery/monkey_saddle.png" alt="Monkey saddle rendered with the Chalkboard material" width="55%">
+  <img src="examples/gallery/hero/monkey_saddle.png" alt="Monkey saddle rendered with the Chalkboard material" width="55%">
+</p>
+
+<p align="center">
+  <em>TikZ → PDF → PNG of <code>Surface(z=x**3 - 3*x*y**2) @ Chalkboard</code>. The chalk-dust pattern is a real TikZ <code>patterns</code> overlay, not a bitmap.</em>
 </p>
 
 `sheaf` lowers a single symbolic expression into a typeset-ready 3D figure.
@@ -33,40 +37,59 @@ Surface(z=x**3 - 3*x*y**2) @ Chalkboard >> Paper("main.tex", label="fig:monkey")
 
 ## Gallery
 
-Every figure is declared by a single DSL expression and rendered through the
-PyVista preview driver. The adaptive mesher concentrates triangles where
-curvature or parametric degeneracy is highest — visible as the denser
-wireframe along the saddle ridges, the inner torus tube, and the sphere's
-poles.
+Every figure below is declared by a single DSL expression, lowered through
+the W3 adaptive mesher, painter-sorted by the W7 BSP tree, and emitted as
+a standalone TikZ document by W8–W10.  The images are 300 dpi
+rasterisations of the actual PDFs — the chalk-dust hatch, the glass
+translucency, and the open-boundary glow all ship directly to your
+paper as vector primitives.
 
 <table>
   <tr>
     <td width="50%" align="center">
-      <img src="examples/gallery/monkey_saddle.png" alt="Monkey saddle"><br>
-      <sub><code>Surface(z=x**3 - 3*x*y**2) @ Chalkboard</code></sub>
+      <img src="examples/gallery/hero/monkey_saddle.png" alt="Monkey saddle"><br>
+      <sub><code>Surface(z=x**3 - 3*x*y**2) @ Chalkboard</code><br>
+      Chalkboard overlays a TikZ <code>patterns</code> crosshatch (W10).</sub>
     </td>
     <td width="50%" align="center">
-      <img src="examples/gallery/torus.png" alt="Torus"><br>
-      <sub>parametric torus <code>@ Blueprint</code></sub>
+      <img src="examples/gallery/hero/torus.png" alt="Torus"><br>
+      <sub>parametric torus <code>@ Glass</code><br>
+      Closed surface: topology analysis (W5) skips the boundary glow.</sub>
     </td>
   </tr>
   <tr>
     <td width="50%" align="center">
-      <img src="examples/gallery/mobius.png" alt="Möbius strip"><br>
-      <sub>Möbius strip <code>@ Glass</code> &mdash; non-orientability through translucency</sub>
+      <img src="examples/gallery/hero/mobius_strip.png" alt="Möbius strip"><br>
+      <sub>Möbius strip <code>@ Glass</code><br>
+      Open surface: the two boundary circles glow (W10 Glass).</sub>
     </td>
     <td width="50%" align="center">
-      <img src="examples/gallery/sphere_helix.png" alt="Sphere with helix"><br>
-      <sub><code>sphere @ Blueprint + helix @ Chalkboard</code></sub>
+      <img src="examples/gallery/hero/helicoid.png" alt="Helicoid"><br>
+      <sub>helicoid <code>@ Blueprint</code><br>
+      Ruled minimal surface; Blueprint keeps the ink-on-paper feel.</sub>
     </td>
   </tr>
 </table>
 
-Regenerate with:
+Rebuild the hero images (requires ``pdflatex`` and ``pdftoppm``, both in
+TeX Live):
 
 ```bash
-python examples/gallery.py
+python examples/build_hero.py
 ```
+
+The **full 12-item publication-grade catalog** lives at
+[`examples/gallery_catalog.py`](examples/gallery_catalog.py), is
+documented at [`docs/gallery.md`](docs/gallery.md), and is driven by
+
+```bash
+python examples/build_gallery.py
+```
+
+which emits `examples/gallery/tex/<name>.{tex,pdf}` for every entry.
+`examples/gallery.py` produces the developer-facing PyVista previews
+(`examples/gallery/*.png`); those are raster and live separately from
+the vector pipeline shown above.
 
 ## Why `sheaf`
 
@@ -100,7 +123,8 @@ VisPy for interactive rendering; `dev` adds `pytest`, `ruff`, and `mypy`.
 
 ### From PyPI
 
-Planned for the Month 3 release (2026-07-21).
+Planned for the first tagged release; the source tree already corresponds
+to the post-W12 roadmap state.
 
 ## Quick start
 
@@ -161,14 +185,22 @@ it reads — no parentheses.
    PyVista      Vector Pipeline      ← BSP + painter sort → TikZ
    preview      (Month 2 W7–W8 ✓)      + PGFPlots (W9 ✓)
                     │                   + material refinement (W10 ✓)
-                    ▼
+                    ▼                   + CI compile matrix (W11 ✓)
               LaTeX Sync              ← main.tex parser, \documentclass,
               (Month 3 W9 ✓)            geometry, fontspec → engine hint
+                    │
+                    ▼
+              Gallery + docs          ← 12 curated figures, per-phase
+              (Month 3 W12 ✓)           bench, bbox gate (< 1 pt)
 ```
 
 ## Status
 
-**Pre-alpha.** Month 1 + Month 2 complete; Month 3 W9–W11 in (2026-04-21 → 2026-07-07):
+**Pre-alpha.** The full 12-week roadmap (W1 → W12, originally planned
+for 2026-04-21 → 2026-07-21) was implemented across the two-day window
+**2026-04-21 → 2026-04-22**. The weekly bullets below preserve the
+roadmap's milestone structure for orientation; every gate listed was
+landed during that window:
 
 - **W1** — DSL scaffold (`Surface`, `Curve`, `Implicit`, `Scene`, `Paper`),
   material presets, preview-driver ABC, LaTeX compile harness (`pdflatex`
@@ -256,15 +288,35 @@ it reads — no parentheses.
 - **W11** — LaTeX compile CI.  A two-job GitHub Actions workflow
   (`.github/workflows/ci.yml`) runs on every push and pull request.
   The **`fast`** job does `ruff check .` plus `pytest -m "not latex"`
-  (147 tests, ≈40 s) for quick-feedback correctness.  The **`latex`**
-  job installs TeX Live (`texlive-latex-recommended`,
-  `texlive-latex-extra`, `texlive-pictures`, `texlive-luatex`,
-  `texlive-fonts-recommended`) and runs `pytest -m latex -v`, exercising
-  the full real-compile matrix: **2 engines × 2 backends × 3 materials
-  = 16 cases**.  Any regression that slips past the Python-level
+  for quick-feedback correctness.  The **`latex`** job installs TeX
+  Live (`texlive-latex-recommended`, `texlive-latex-extra`,
+  `texlive-pictures`, `texlive-luatex`, `texlive-fonts-recommended`)
+  and runs `pytest -m latex -v`, exercising the full real-compile
+  matrix across TikZ / PGFPlots × pdflatex / lualatex × every shipped
+  material.  Any regression that slips past the Python-level
   assertions — an unclosed `axis` environment, a mistyped pattern name,
   a package the preamble forgets — now fails on PR before it reaches
   `main`.
+
+- **W12** — Gallery, documentation, and first performance pass.
+  [`examples/gallery/catalog.py`](examples/gallery/catalog.py) holds
+  twelve curated surfaces (monkey saddle, Möbius, torus, Klein bottle,
+  sphere, helicoid, Enneper, Dini, Whitney umbrella, catenoid, …) —
+  four each of Chalkboard / Blueprint / Glass — exercising explicit
+  and parametric forms, open and closed topology, orientable and
+  non-orientable parametrisations, and isolated singularities.
+  [`examples/build_gallery.py`](examples/build_gallery.py) emits every
+  item as `examples/gallery/tex/<name>.{tex,pdf}`; the catalog is fully
+  testable (29 smoke tests + 6 real-compile gate tests).  The Month 3
+  final validation gate — *"bounding-box error < 1 pt"* — is now
+  enforced by [`tests/test_paper_bbox.py`](tests/test_paper_bbox.py),
+  which decompresses the standalone PDF's MediaBox and compares it to
+  the projected mesh extent under both engines.
+  [`benchmarks/bench_pipeline.py`](benchmarks/bench_pipeline.py)
+  records per-phase timings; the baseline in
+  [`docs/performance.md`](docs/performance.md) documents the BSP
+  hot-spot (O(n²) on smooth surfaces) as the next optimisation
+  target.
 
 Validation gates met: sphere polar density ≥ 2× equatorial; Gaussian-peak
 origin density ≥ 2× ring; every mesh edge shared by ≤ 2 triangles; sphere
@@ -277,11 +329,15 @@ Chalkboard, Blueprint, and Glass *on every CI run*; parser correctly
 resolves textwidth for article/amsart at 10/11/12pt and honours
 `geometry` overrides in pt/in/cm; Glass emits boundary-glow strokes on
 open surfaces and *none* on a closed tetrahedron; Chalkboard surfaces a
-TikZ hatch overlay while PGFPlots degrades to the plain patch.  **163
-tests pass** (147 fast + 16 LaTeX gate), `ruff` clean.
+TikZ hatch overlay while PGFPlots degrades to the plain patch; every
+one of the 12 gallery entries meshes + emits cleanly; the standalone
+PDF MediaBox matches the projected extent within 1 pt under both
+engines.  **200 tests pass** (176 fast + 24 LaTeX gate), `ruff` clean.
 
-Next up (Month 3): gallery of 10+ example figures, documentation, and a
-performance pass on BSP-on-large-mesh throughput (W12).
+Next up (post-roadmap): the `Curve` vector emitter (unlocks geodesic
+and Gauss-map gallery entries deferred from W12), BSP
+throughput-optimisation for large meshes, and `Scene` composition
+with multiple geometries.
 
 ## Running the tests
 
@@ -298,16 +354,17 @@ Every push and pull request runs the
 [`ci` workflow](.github/workflows/ci.yml) on `ubuntu-latest` in two
 parallel jobs:
 
-- **`fast`** — `ruff check .` + `pytest -m "not latex"` (147 tests,
-  ≈40 s).  Preview tests `importorskip` when PyVista is absent, so the
-  dev-only install is enough.
+- **`fast`** — `ruff check .` + `pytest -m "not latex"` (176 tests).
+  Preview tests `importorskip` when PyVista is absent, so the dev-only
+  install is enough.
 - **`latex`** — `apt-get install texlive-latex-recommended
   texlive-latex-extra texlive-pictures texlive-luatex
-  texlive-fonts-recommended`, then `pytest -m latex -v`.  This executes
-  the full gate matrix: **2 engines (pdflatex / lualatex) × 2 backends
-  (TikZ / PGFPlots) × 3 materials (Chalkboard / Blueprint / Glass)** —
-  16 real-compile test cases — catching any regression in the emitter
-  output that a dry Python-only run would miss.
+  texlive-fonts-recommended`, then `pytest -m latex -v`.  **24
+  real-compile test cases** cover the full gate matrix: **2 engines
+  (pdflatex / lualatex) × 2 backends (TikZ / PGFPlots) × 3 materials
+  (Chalkboard / Blueprint / Glass)**, plus the W12 gallery subset
+  (3 items × 2 engines) and the Month 3 bbox-precision gate (1 test ×
+  2 engines).
 
 ## Contributing
 
